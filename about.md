@@ -8,4 +8,4 @@ Explained Here: https://yal.cc/gamemaker-gmmod-format
 
 .vbuff - GameMaker (Modern)
 
-This is simple a buffer saved to a file. Loading this should be as simple as using "buffer_load" and using "vertex_create_buffer_from_buffer" on to that buffer. A script is provided to do just that.
+This is simple a buffer saved to a file. Loading this should be as simple as using "buffer_load" and using "vertex_create_buffer_from_buffer" on to that buffer.
