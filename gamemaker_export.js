@@ -20,43 +20,64 @@
 		description: "Export to (unofficial) GameMaker model formats.",
 		version: '1.0.0',
 		variant: 'desktop',
+
 		oninstall(){},
+		onuninstall(){},
+
 		onload() {
-			
+
 			exportDialog = new Dialog({
 				title: "GameMaker Export Settings",
 				form: {
-					"legacy": {label: "Legacy Export", type: "checkbox"},
-					"orientation": { label: "Reorder", type: "inline_select", 
+					only_visible: {label: "Only Visible", type: "checkbox", value: true,},
+					filetype: {label: "Data Type", type: "select", value: "vBuff",
+						options: {legacy: "Legacy (D3D, GMMOD)", vBuff: "Vertex Buffer", mBuff: "Model Buffer"},
+						description: "",
+						},
+					normalize: {label: "Normalize Positions", type: "checkbox",},
+					mirror: {label: "Flip", type: 'inline_multi_select', 
+						options: {x:"X", y:"Y", z:"Z"},
+						default: {x: false, y: false, z: true},
+						},
+					orientation: { label: "Reorder", type: "inline_select", 
 						options: {xyz: "XYZ", xzy: "XZY", yxz: "YXZ", yzx: "YZX", zxy: "ZXY", zyx: "ZYX"},
+						default: "zxy",
 						},
-					"mirror": {label: "Flip", type: 'inline_multi_select', 
-						options: {x:"X", y:"Y", z:"Z"} 
+					//normalize: {label: "Normalize Positions", type: "checkbox", description: "DOES NOTHING YET!"},
+					scale: {label: "Scale", type: "number", value: 1.0, step: 0.1},
+					vformat: {label: "Vertex Format", type: "inline_multi_select",
+						options: {normal: "Normal", texcoord: "Texcoord", color: "Color"},
+						default: {normal: true, texcoord: true, color: true},
 						},
-					"scale": {label: "Scale", type: "number", 
-						value: 1.0, step: 0.1
+					marker_colors: {label: "Marker Color", type: "inline_select",
+						options: {none: "None", standard: "Standard", pastel: "Pastel"},
 						},
-					"only_visible": {label: "Only Visible", type: "checkbox"},
-					"normal_map": {label: "Normal Map", type: "checkbox"},
-					//"split_meshes": {label: "Split Meshes", type: "checkbox"}
+					include: {label: "Include", type: 'inline_multi_select', condition: ({filetype}) => ['mBuff'].includes(filetype),
+						options: {bone_data: "BoneData", vformat: "Vertex Format",},
+						default: {bone_data: true, vformat: false},
+						},
+					split_meshes: {label: "Split Meshes", type: "checkbox", condition: ({filetype}) => ['legacy'].includes(filetype)},
+					export_textures: {label: "Export Textures", type: "checkbox"},
 					},
 				onOpen(){},
-				onConfirm(_result) {formResult = _result; GMmodel_build_and_export();}
+				onFormChange(_result) {},
+				onConfirm(_result) {
+					formResult = _result;
+					GMmodel_build_and_export();
+					}
 				});
-
+			
 			openDialog = new Action("openGameMakerExportDialog",{
 				name: "Export GameMaker Model",
 				icon: "park",
 				click: function() {exportDialog.show();}
-				});
-
-
-			MenuBar.addAction(openDialog, "file.export");
-
-			},
-		
-		onunload() {
+				})
 			
+			MenuBar.addAction(openDialog, "file.export");
+			},
+		onunload() {
+			console.log("Plugin Unloaded");
+
 			openDialog.delete();
 			exportDialog.delete();
 
@@ -72,19 +93,72 @@
 		var _export = {
 			d3d_str: "",
 			d3d_entries: 0,
+
+			boneCount: 0,
 			
 			buffer: Buffer.alloc( vdata.byteLength ),
 			offset: 0,
 			};
 		
 		submesh_open(_export);
+		if (formResult.include_bone_data) {
+
+			if (Group.hasAny() ) {
+
+				var _boneCount = 0;
+				var _boneData = [];
+				var _boneIndex = {};
+				let _bone, _origin = [0, 0, 0];
+
+				for (let i = 0; i < Group.all.length; i++) {
+					
+					_bone = Group.all[i];
+
+					_boneIndex[_bone.uuid] = i;
+
+					for(var l = 0; l < 3; l++) {
+
+						let _axisNum = getAxisNumber( formResult.orientation[j] ) ;
+						_origin[j] = _bone.origin[ _axisNum ] * formResult.scale;
+		
+						if ( formResult.mirror[ formResult.orientation[ j ] ] ) {o[j] *= -1;}
+						
+						}
+
+					_export.offset = _export.buffer.writeFloatLE(_origin[0], _export.offset);
+					_export.offset = _export.buffer.writeFloatLE(_origin[1], _export.offset);
+					_export.offset = _export.buffer.writeFloatLE(_origin[2], _export.offset);
+
+					if (_bone.parent != "root") {_export.offset = _export.buffer.writeUInt8(0xFF, _export.offset);}
+					else {_export.offset = _export.buffer.writeUInt8(_boneIndex[_bone.parent.uuid], _export.offset);}
+
+					_boneCount += 1;
+					}
+
+				}
+
+			if (Locator.hasAny() ) {
+				
+				for (let i = 0; i < Locator.all.length; i++) {
+					
+					_bone = Locator.all[i];
+
+					_boneIndex[_bone.uuid] = i;
+
+					}
+
+				}
+
+			}
+		
+		var _vertCount = 0;
 
 		for (let i = 0; i < Cube.all.length; i++) {
 			let _cube = Cube.all[i];
 			
 			if ( (!_cube.export) || (formResult.only_visible && !_cube.visibility) ) continue;
 
-			let faces 	= ["north","east","south","west","up","down"];
+			let faces 	= ["north", "east", "south", "west", "up", "down"];
 			
 			let _vert = _cube.getGlobalVertexPositions();
 
@@ -147,11 +221,14 @@
 				let _dir = (_det != 0) ? Math.sign(_det) : 1;
 				
 				//#region getNormal
+
 				let edge1 	= [ ...v[2] ].V3_subtract( v[0] ).V3_toThree();
 				let edge2 	= [ ...v[1] ].V3_subtract( v[0] ).V3_toThree();
 				let n 		= new THREE.Vector3().crossVectors(edge2, edge1).multiplyScalar(_dir).normalize().toArray();
 
 				//#endregion
+
+				//#region UVs
 
 				let uv = [
 					[_face.uv[0] / _tex_w, _face.uv[1] / _tex_h ],
@@ -159,20 +236,21 @@
 					[_face.uv[2] / _tex_w, _face.uv[3] / _tex_h ],
 					[_face.uv[0] / _tex_w, _face.uv[3] / _tex_h ]
 					];
+				
+				//#endregion
 
+				//Color
+				var c = (formResult.marker_colors != "none") ? hex_string_to_rgb( markerColors[_cube.color][formResult.marker_colors] ) : [255, 255, 255];
 				
 				for (let j = 0, k = 0; k < 6; k++) {
-					vertex_add_point(_export, v[j], n, uv[j], 255, 255, 255, 255);
+					vertex_add_point(_export, v[j], n, uv[j], c[0], c[1], c[2], 255);
 					if ((k % 3) != 2 ) {j = ( (j + _dir) % 4);}
 					if (j < 0) {j = 4 + j;}
 					}
-				
+
 				} );
 			
-			if (formResult.split_meshes) {
-				submesh_close(_export);
-				submesh_open(_export);
-				}
+			if (formResult.split_meshes) {submesh_close(_export); submesh_open(_export);}
 
 			}
 		
@@ -308,10 +386,12 @@
 						(isNaN(_face.uv[ vid[j+_dir] ][0]) ? 0 : _face.uv[ vid[j+_dir] ][0]) / _tex_w,
 						(isNaN(_face.uv[ vid[j+_dir] ][1]) ? 0 : _face.uv[ vid[j+_dir] ][1]) / _tex_h,
 						];
-
-					vertex_add_point(_export, v[0], n, uv0, 255, 255, 255, 255);
-					vertex_add_point(_export, v[1], n, uv1, 255, 255, 255, 255);
-					vertex_add_point(_export, v[2], n, uv2, 255, 255, 255, 255);
+					
+					var c = (formResult.marker_colors != "none") ? hex_string_to_rgb( markerColors[_mesh.color][formResult.marker_colors] ) : [255, 255, 255];
+					
+					vertex_add_point(_export, v[0], n, uv0, c[0], c[1], c[2], 255);
+					vertex_add_point(_export, v[1], n, uv1, c[0], c[1], c[2], 255);
+					vertex_add_point(_export, v[2], n, uv2, c[0], c[1], c[2], 255);
 					
 					}
 
@@ -323,9 +403,9 @@
 		
 		if (isApp) {
 			
-			switch( formResult.legacy ) {
+			switch( formResult.filetype ) {
 				
-				case true: {
+				case "legacy": {
 
 					_export.d3d_str = `100\n${_export.d3d_entries}\n` + _export.d3d_str;
 
@@ -337,10 +417,11 @@
 							savetype: 'text'
 							},
 						);
+					
 					}
 					break;
 
-				case false: {
+				case "vBuff": {
 
 					Blockbench.export({
 						type: 'GameMaker Model',
@@ -352,6 +433,9 @@
 					
 					}
 					break;
+
+				case "mBuff": {}
+					break;
 				}
 			
 			} 
@@ -360,6 +444,8 @@
 
 	function submesh_open(d) {d.d3d_str += "0 4 0 0 0 0 0 0 0 0 0\n"; d.d3d_entries++;}
 	function submesh_close(d) {d.d3d_str += "1 0 0 0 0 0 0 0 0 0 0\n"; d.d3d_entries++;}
+
+	function bone_add(d, parent_index, pos, ) {}
 
 	function vertex_add_point(d, pos, normal, uv, r, g, b, a) {
 
@@ -401,23 +487,26 @@
 			_b = b,
 			_a = a / 255;
 
-		if (formResult.normal_map) {
-			_r = Math.round( (normal[0] * 0.5 + 0.5) * 255);
-			_g = Math.round( (normal[1] * 0.5 + 0.5) * 255);
-			_b = Math.round( (normal[2] * 0.5 + 0.5) * 255);
-			}
+		if (formResult.vformat[ "color"] ) {
 
-		//Buffer
-		d.offset = d.buffer.writeUInt8(_r, d.offset);
-		d.offset = d.buffer.writeUInt8(_g, d.offset);
-		d.offset = d.buffer.writeUInt8(_b, d.offset);
-		d.offset = d.buffer.writeUInt8(_a * 255, d.offset);
+			if (formResult.normal_map) {
+				_r = Math.round( (normal[0] * 0.5 + 0.5) * 255);
+				_g = Math.round( (normal[1] * 0.5 + 0.5) * 255);
+				_b = Math.round( (normal[2] * 0.5 + 0.5) * 255);
+				}
+
+			//Buffer
+			d.offset = d.buffer.writeUInt8(_r, d.offset);
+			d.offset = d.buffer.writeUInt8(_g, d.offset);
+			d.offset = d.buffer.writeUInt8(_b, d.offset);
+			d.offset = d.buffer.writeUInt8(_a * 255, d.offset);
+			}
 
 		d.d3d_str += `${ _r | (_g << 8 ) | (_b << 16) } ${_a} `;
 
 		//#endregion
 
-		d.d3d_str += "\n"
+		d.d3d_str += "\n";
 
 		d.d3d_entries++;
 
@@ -459,5 +548,12 @@
 			};
 		}
 
+	function hex_string_to_rgb(hex) {
+		return [
+			parseInt(hex.substring(1, 3), 16),
+			parseInt(hex.substring(3, 5), 16),
+			parseInt(hex.substring(5, 7), 16)
+			];
+		}
 
 	})();
