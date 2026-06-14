@@ -3,6 +3,9 @@ Allows Blockbench export to (unofficial) GameMaker models. (Only supports Triang
 
 There are no official 3D model formats for GameMaker at this time but these are some that should be simpler to load in your project.
 
+
+This doesn't work in the Web App. I forgot to test it and thought I'd be fine removing the seemingly needless "isApp" check. But Buffer doesn't seem to work from the Web App. Might be an easy fix but I don't currently know it. 
+
 ## Vertex Buffer (.vbuff)
 
 Exports a .vbuff file that can be simply loaded.
@@ -21,11 +24,12 @@ Note: I don't remember whether I've tested this but I imagine that it works.
 
 # Planned Features
 Ordered by priority
-- Export Rig (Groups and Armatures) as JSON.
-- Generate GML Button (Useful for primatives).
-- Generate Vertex Format String
-- Animation Export (maybe)
-- "Split Meshes" for Vertex Buffer export.
+- Export Bones (Groups and Locators) as JSON.
+- Generate GML Button.
+- Export Armatures
+- Animation Export
+- "Split Meshes" for Vertex Buffer.
+- Web App Support
 
 # A Small Note
 I am admittedly skeptical of the quality of this plugin. I don't have experience with Javascript or Typescript beyond working on this. But it also sees to work fine.

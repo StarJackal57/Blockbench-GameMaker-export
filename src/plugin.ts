@@ -9,7 +9,7 @@ const deletables: Deletable[] = [];
 BBPlugin.register("gamemaker-export", {
 	title: "GameMaker Export",
 	author: "GoldScale57",
-	icon: "tree",
+	icon: "park",
 	description: "Export to (unofficial) GameMaker model formats.",
 	version: "1.0.0",
 	variant: "desktop",
@@ -94,7 +94,6 @@ function setup() {
 			/*
 			include_vformat: {label: "Include Vertex Format", type: 'checkbox', default: false, condition: ({filetype}) => ['mBuff'].includes(filetype)},
 			//*/
-			/*
 			export_button: {
 				label: "",
 				type: "buttons",
@@ -110,7 +109,6 @@ function setup() {
 				}
 			
 			}
-			//*/
 		},
 		onOpen() {ExportDialog_Open();},
 		onFormChange(_result) {
@@ -152,17 +150,42 @@ function ExportDialog_Open() {
 function ExportDialog_Confirm(_result) {
 	formResult = _result;
 
-	GMmodel_build_and_export();
+	if (isApp) {//Don't understand why but
+
+		GMmodel_build();
+
+		switch (formResult.filetype) {
+
+			case "legacy":
+				Blockbench.export({
+					type: "GameMaker Model",
+					extensions: ["d3d", "gmmod"],
+					name: Project.name !== "" ? Project.name : "model",
+					content: exportData.d3d_str,
+					savetype: "text"
+				});
+				break;
+
+			case "vBuff":
+				Blockbench.export({
+				type: "GameMaker Model",
+				extensions: ["vbuff"],
+				name: Project.name !== "" ? Project.name : "model",
+				content: exportData.buffer,
+				savetype: "text"
+				});
+				break;
+		
+		}
+	}
 
 }
 
-function GMmodel_build_and_export() {
+function GMmodel_build() {
 
-	exportData.byteLength = vertex_find_data(formResult);
-	exportData.buffer = Buffer.alloc(exportData.byteLength);
-
-	
-	exportData.magnitude = normalize_magnitude();
+	exportData.byteLength 	= vertex_find_data(formResult);
+	exportData.buffer 		= Buffer.alloc(exportData.byteLength);
+	exportData.magnitude 	= normalize_magnitude();
 
 	submesh_open(exportData);
 
@@ -351,35 +374,9 @@ function GMmodel_build_and_export() {
 	}
 	
 	submesh_close(exportData);
+
+	exportData.d3d_str = `100 ${exportData.d3d_entries}` + exportData.d3d_str;
 	
-	if (isApp) {
-
-	  switch (formResult.filetype) {
-
-		case "legacy":
-		  exportData.d3d_str = `100 ${exportData.d3d_entries}` + exportData.d3d_str;
-		  Blockbench.export({
-			  type: "GameMaker Model",
-			  extensions: ["d3d", "gmmod"],
-			  name: Project.name !== "" ? Project.name : "model",
-			  content: exportData.d3d_str,
-			  savetype: "text"
-			});
-		  break;
-
-		case "vBuff":
-		  Blockbench.export({
-			type: "GameMaker Model",
-			extensions: ["vbuff"],
-			name: Project.name !== "" ? Project.name : "model",
-			content: exportData.buffer,
-			savetype: "text"
-		  });
-		  break;
-	  
-		}
-	}
-  
 }
 
 function submesh_open(d) {d.d3d_str += "0 4 0 0 0 0 0 0 0 0 0\n"; d.d3d_entries++;}
