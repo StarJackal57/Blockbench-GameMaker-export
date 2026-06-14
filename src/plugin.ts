@@ -94,6 +94,7 @@ function setup() {
 			/*
 			include_vformat: {label: "Include Vertex Format", type: 'checkbox', default: false, condition: ({filetype}) => ['mBuff'].includes(filetype)},
 			//*/
+			/*
 			export_button: {
 				label: "",
 				type: "buttons",
@@ -107,8 +108,8 @@ function setup() {
 						case 1: generate_gml(); break;
 					}
 				}
-			
 			}
+			//*/
 		},
 		onOpen() {ExportDialog_Open();},
 		onFormChange(_result) {
@@ -117,8 +118,7 @@ function setup() {
 			ExportDialog_Confirm(_result);
 			exportData = -1;
 		},
-		onCancel() {
-			
+		onCancel() {exportData = -1;
 		}
 	});
 	deletables.push(exportDialog);
