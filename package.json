@@ -1,15 +1,15 @@
 {
-  "name": "bb-plugin-template-esbuild",
+  "name": "Blockbench-GameMaker-Export",
   "version": "1.0.0",
-  "description": "A template for building Blockbench plugins using Typescript and esbuild",
+  "description": "Allows Exporting to ",
   "main": "src/plugin.ts",
   "type": "module",
   "scripts": {
-    "build": "esbuild src/plugin.ts --bundle --outfile=dist/my_plugin.js",
-    "dev": "esbuild src/plugin.ts --bundle --outfile=dist/my_plugin.js --watch"
+    "build": "esbuild src/plugin.ts --bundle --outfile=dist/gamemaker-export.js",
+    "dev": "esbuild src/plugin.ts --bundle --outfile=dist/gamemaker-export.js --watch"
     
   },
-  "author": "JannisX11",
+  "author": "GoldScale57",
   "license": "MIT",
   "dependencies": {
     "blockbench-types": "^5.0.0-beta.0"
